@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Polaroid Cam</title>
+</head>
+<body>
+
+<div id="app">
+  <div id="viewfinder">
+    <video id="video" autoplay playsinline muted></video>
+    <div id="demoBg"></div>
+    <div class="vf-vignette"></div>
+    <div class="vf-grain"></div>
+    <div class="vf-frame">
+      <div class="vf-corner-tl"></div><div class="vf-corner-tr"></div>
+      <div class="vf-corner-bl"></div><div class="vf-corner-br"></div>
+    </div>
+    <div class="vf-crosshair"></div>
+    <div class="hud hud-tl" id="hudClock"><span id="recDot"></span>00:00:00</div>
+    <div class="hud hud-tr">ISO 400<br>f/2.8 · 1/125</div>
+    <div class="hud hud-bl">EXP <span id="expVal">0.0</span></div>
+    <div class="focus-reticle" id="focusReticle"></div>
+    <div class="flash-overlay" id="flashOverlay"></div>
+    <div class="hint">drag a developing photo aside to shoot the next · prints file themselves away</div>
+    <div id="permMsg">
+      <strong>Camera preview unavailable here</strong>
+      Running in demo mode — tap the shutter to see the film eject &amp; develop.
+      On your iPhone, this becomes a live viewfinder feed.
+    </div>
+    <div id="photoLayer"></div>
+    <div class="tray" id="tray"></div>
+  </div>
+
+  <div id="deck">
+    <div class="deck-btn" id="flipBtn">⟲</div>
+    <div id="shutter"></div>
+    <div class="deck-btn" id="flashBtn">⚡</div>
+  </div>
+  <div class="brand">Polaroid Cam</div>
+</div>
+
+<div id="drawerScrim"></div>
+<div id="drawer">
+  <div class="drawer-liner">
+    <div class="drawer-header">
+      <span class="drawer-title">Print Box</span>
+      <span class="drawer-count" id="drawerCount">0</span>
+    </div>
+    <div class="drawer-empty" id="drawerEmpty">Prints will show up here once they're developed</div>
+    <div class="drawer-grid" id="drawerGrid"></div>
+  </div>
+</div>
+<div id="drawerTab">
+  <div class="tab-chevron">▲</div>
+</div>
+
+<div id="viewer">
+  <div class="polaroid" id="viewerPolaroid"></div>
+</div>
+
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>
