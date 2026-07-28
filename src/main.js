@@ -14,6 +14,7 @@ import './style.css';
   const focusReticle = document.getElementById('focusReticle');
   const hudClock = document.getElementById('hudClock');
   const expVal = document.getElementById('expVal');
+  const filmHud = document.getElementById('filmHud');
   const viewer = document.getElementById('viewer');
   const viewerPolaroid = document.getElementById('viewerPolaroid');
 
@@ -21,6 +22,34 @@ import './style.css';
   let facingMode = 'user';
   let demoMode = false;
   let stream = null;
+
+  // each stock is what's "loaded" when a shot is taken — the resting look
+  // it develops into, plus the flavor text a real film box would carry
+  const FILM_STOCKS = [
+    { label: 'Classic 600', fstop: '2.8', shutter: '125', final: 'brightness(1) saturate(1.05) contrast(1.03) sepia(0.05)' },
+    { label: 'Mono 800', fstop: '4', shutter: '250', final: 'grayscale(1) contrast(1.18) brightness(1.03)' },
+    { label: 'Vivid 100', fstop: '2', shutter: '60', final: 'saturate(1.45) contrast(1.15) brightness(1.02)' },
+    { label: 'Faded 200', fstop: '5.6', shutter: '90', final: 'brightness(1.12) saturate(0.55) contrast(0.88) sepia(0.12)' },
+    { label: 'Noir 320', fstop: '3.5', shutter: '100', final: 'sepia(0.7) contrast(1.1) saturate(0.8) brightness(0.95)' },
+  ];
+  let filmIndex = 0;
+
+  function renderFilmHud(){
+    const film = FILM_STOCKS[filmIndex];
+    filmHud.innerHTML = `${film.label}<br>f/${film.fstop} · 1/${film.shutter}`;
+  }
+  renderFilmHud();
+
+  filmHud.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    filmIndex = (filmIndex + 1) % FILM_STOCKS.length;
+    renderFilmHud();
+    haptic(12);
+    filmHud.classList.remove('pulse');
+    void filmHud.offsetWidth;
+    filmHud.classList.add('pulse');
+    setTimeout(()=> filmHud.classList.remove('pulse'), 500);
+  });
 
   // clock
   function tick(){
@@ -67,7 +96,7 @@ import './style.css';
   });
 
   viewfinder.addEventListener('pointerdown', (e)=>{
-    if(e.target.closest('#deck') || e.target === shutter) return;
+    if(e.target.closest('#deck') || e.target === shutter || e.target.closest('#filmHud')) return;
     const rect = viewfinder.getBoundingClientRect();
     const x = e.clientX - rect.left, y = e.clientY - rect.top;
     focusReticle.style.left = x + 'px';
@@ -120,10 +149,10 @@ import './style.css';
     if(flashOn){ flashOverlay.classList.remove('fire'); void flashOverlay.offsetWidth; flashOverlay.classList.add('fire'); }
 
     const dataUrl = captureFrame();
-    ejectPolaroid(dataUrl);
+    ejectPolaroid(dataUrl, FILM_STOCKS[filmIndex]);
   });
 
-  function ejectPolaroid(dataUrl){
+  function ejectPolaroid(dataUrl, film){
     photoCount++;
     const vfRect = viewfinder.getBoundingClientRect();
     const polWidth = Math.min(vfRect.width * 0.78, 320);
@@ -144,7 +173,7 @@ import './style.css';
         <img src="${dataUrl}" style="filter: brightness(0.06) saturate(0) contrast(1.2) sepia(0.3) hue-rotate(150deg);">
         <div class="develop-grain" style="opacity:0.95;"></div>
       </div>
-      <div class="caption">#${String(photoCount).padStart(3,'0')} · ${new Date().toLocaleDateString()}</div>
+      <div class="caption">#${String(photoCount).padStart(3,'0')} · ${new Date().toLocaleDateString()} · ${film.label}</div>
       <div class="drag-hint">slide me aside →</div>
     `;
     photoLayer.appendChild(pol);
@@ -180,9 +209,10 @@ import './style.css';
     }, 2200);
 
     setTimeout(()=>{
-      // phase 3: color blooms in slowly, like real dye coupling
+      // phase 3: color blooms in slowly, like real dye coupling — settling
+      // into whatever stock was loaded when the shot was taken
       img.style.transition = 'filter 13s cubic-bezier(.16,.5,.3,1)';
-      img.style.filter = 'brightness(1) saturate(1) contrast(1) sepia(0) hue-rotate(0deg)';
+      img.style.filter = film.final;
       grain.style.transition = 'opacity 6s ease-out';
       grain.style.opacity = '0';
     }, 2200 + 9000);
