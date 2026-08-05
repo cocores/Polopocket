@@ -24,20 +24,26 @@ import './style.css';
   let demoMode = false;
   let stream = null;
 
-  // each stock is what's "loaded" when a shot is taken — the resting look
-  // it develops into, plus the flavor text a real film box would carry
+  // each is what's "loaded" when a shot is taken — its real image-area
+  // aspect ratio (width/height) shapes the print, and a color grade
+  // suited to its era/character bakes into the develop animation
   const FILM_STOCKS = [
-    { label: 'Classic 600', fstop: '2.8', shutter: '125', final: 'brightness(1) saturate(1.05) contrast(1.03) sepia(0.05)' },
-    { label: 'Mono 800', fstop: '4', shutter: '250', final: 'grayscale(1) contrast(1.18) brightness(1.03)' },
-    { label: 'Vivid 100', fstop: '2', shutter: '60', final: 'saturate(1.45) contrast(1.15) brightness(1.02)' },
-    { label: 'Faded 200', fstop: '5.6', shutter: '90', final: 'brightness(1.12) saturate(0.55) contrast(0.88) sepia(0.12)' },
-    { label: 'Noir 320', fstop: '3.5', shutter: '100', final: 'sepia(0.7) contrast(1.1) saturate(0.8) brightness(0.95)' },
+    { label: 'i-Type', aspect: 789/768, note: 'Now / Now+ / Lab · no battery', final: 'brightness(1) saturate(1.05) contrast(1.03) sepia(0.04)' },
+    { label: '600', aspect: 789/768, note: 'vintage 600-series · battery in pack', final: 'brightness(1.05) saturate(1.15) contrast(1.06) sepia(0.07)' },
+    { label: 'SX-70', aspect: 789/768, note: 'folding SX-70 · low ISO, needs more light', final: 'brightness(0.9) saturate(0.82) contrast(0.94) sepia(0.22)' },
+    { label: 'Go', aspect: 460/470, note: 'ultra-compact mini square', final: 'brightness(1.06) saturate(1.2) contrast(1.1)' },
+    { label: '8×10', aspect: 8/10, note: 'large-format studio · varies by mask', final: 'grayscale(0.3) contrast(1.12) brightness(0.97) sepia(0.05)' },
+    { label: 'Spectra', aspect: 90/73, note: 'wide frame · discontinued', final: 'brightness(1.08) saturate(0.7) contrast(0.9) sepia(0.15)' },
+    { label: 'Type 500', aspect: 73/54, note: 'Captiva / Joycam mini · discontinued', final: 'saturate(0.85) contrast(0.95) brightness(1.1) sepia(0.18)' },
+    { label: 'Type 100', aspect: 5/4, note: 'peel-apart pack film · discontinued', final: 'sepia(0.5) contrast(1.05) saturate(0.7) brightness(0.95)' },
+    { label: 'i-Zone', aspect: 24/36, note: 'sticker film · discontinued', final: 'saturate(1.35) contrast(1.22) brightness(1.05) hue-rotate(-3deg)' },
   ];
   let filmIndex = 0;
 
   function renderFilmHud(){
     const film = FILM_STOCKS[filmIndex];
-    filmHud.innerHTML = `${film.label}<br>f/${film.fstop} · 1/${film.shutter}`;
+    filmHud.innerHTML = `${film.label}<br>${film.note}`;
+    filmHud.setAttribute('aria-label', `Change film stock — currently ${film.label}, ${filmIndex + 1} of ${FILM_STOCKS.length}`);
   }
   renderFilmHud();
 
@@ -111,9 +117,13 @@ import './style.css';
     if(navigator.vibrate) navigator.vibrate(ms);
   }
 
-  function captureFrame(){
+  function captureFrame(aspect){
+    // keep roughly the same pixel budget across shapes, just reflow it
+    // to the chosen film's real width/height proportions
+    const targetArea = 480 * 640;
+    const h = Math.round(Math.sqrt(targetArea / aspect));
+    const w = Math.round(aspect * h);
     const canvas = document.createElement('canvas');
-    const w = 480, h = 640;
     canvas.width = w; canvas.height = h;
     const ctx = canvas.getContext('2d');
 
@@ -163,7 +173,7 @@ import './style.css';
     if(flashOn){ flashOverlay.classList.remove('fire'); void flashOverlay.offsetWidth; flashOverlay.classList.add('fire'); }
 
     const film = FILM_STOCKS[filmIndex];
-    const canvas = captureFrame();
+    const canvas = captureFrame(film.aspect);
     const rawUrl = canvas.toDataURL('image/jpeg', 0.9);
     const finalUrl = renderFilmVariant(canvas, film.final);
     ejectPolaroid(rawUrl, finalUrl, film);
@@ -186,7 +196,7 @@ import './style.css';
     pol.style.zIndex = 20 + photoCount;
 
     pol.innerHTML = `
-      <div class="shot">
+      <div class="shot" style="aspect-ratio: ${film.aspect};">
         <img src="${rawUrl}" style="filter: brightness(0.06) saturate(0) contrast(1.2) sepia(0.3) hue-rotate(150deg);">
         <div class="develop-grain" style="opacity:0.95;"></div>
       </div>
@@ -385,7 +395,7 @@ import './style.css';
     const slug = (film ? film.label : 'photo').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
     viewerFilename = `polaroid-${slug}-${Date.now()}.jpg`;
     viewerPolaroid.innerHTML = `
-      <div class="shot"><img src="${dataUrl}"></div>
+      <div class="shot" style="aspect-ratio: ${film ? film.aspect : '3/4'};"><img src="${dataUrl}"></div>
       <div class="caption" style="opacity:0.8;">${film ? film.label : 'developed'}</div>
     `;
     viewer.style.display = 'flex';
