@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 
-// GitHub Pages serves this project at /Polopocket/, so the production
-// build needs that base path baked into asset URLs; local dev keeps root.
+// Relative asset paths so the same build works whether it's served from
+// a domain root (Vercel) or a subpath (GitHub Pages at /Polopocket/).
 export default defineConfig(({ command }) => ({
-  base: command === 'build' ? '/Polopocket/' : '/',
+  base: command === 'build' ? './' : '/',
 }));
