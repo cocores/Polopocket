@@ -17,6 +17,7 @@ import './style.css';
   const filmHud = document.getElementById('filmHud');
   const viewer = document.getElementById('viewer');
   const viewerPolaroid = document.getElementById('viewerPolaroid');
+  const saveBtn = document.getElementById('saveBtn');
 
   let flashOn = false;
   let facingMode = 'user';
@@ -139,7 +140,20 @@ import './style.css';
       }
       ctx.drawImage(video, 0, 0, w, h);
     }
-    return canvas.toDataURL('image/jpeg', 0.9);
+    return canvas;
+  }
+
+  // bakes a film's CSS filter into actual pixels (Canvas 2D's `filter`
+  // accepts the same syntax) so the saved/exported image matches what
+  // the animation settles into, not just the live on-screen look
+  function renderFilmVariant(sourceCanvas, filterCss){
+    const canvas = document.createElement('canvas');
+    canvas.width = sourceCanvas.width;
+    canvas.height = sourceCanvas.height;
+    const ctx = canvas.getContext('2d');
+    ctx.filter = filterCss;
+    ctx.drawImage(sourceCanvas, 0, 0);
+    return canvas.toDataURL('image/jpeg', 0.92);
   }
 
   let photoCount = 0;
@@ -148,11 +162,14 @@ import './style.css';
     haptic(20);
     if(flashOn){ flashOverlay.classList.remove('fire'); void flashOverlay.offsetWidth; flashOverlay.classList.add('fire'); }
 
-    const dataUrl = captureFrame();
-    ejectPolaroid(dataUrl, FILM_STOCKS[filmIndex]);
+    const film = FILM_STOCKS[filmIndex];
+    const canvas = captureFrame();
+    const rawUrl = canvas.toDataURL('image/jpeg', 0.9);
+    const finalUrl = renderFilmVariant(canvas, film.final);
+    ejectPolaroid(rawUrl, finalUrl, film);
   });
 
-  function ejectPolaroid(dataUrl, film){
+  function ejectPolaroid(rawUrl, finalUrl, film){
     photoCount++;
     const vfRect = viewfinder.getBoundingClientRect();
     const polWidth = Math.min(vfRect.width * 0.78, 320);
@@ -170,7 +187,7 @@ import './style.css';
 
     pol.innerHTML = `
       <div class="shot">
-        <img src="${dataUrl}" style="filter: brightness(0.06) saturate(0) contrast(1.2) sepia(0.3) hue-rotate(150deg);">
+        <img src="${rawUrl}" style="filter: brightness(0.06) saturate(0) contrast(1.2) sepia(0.3) hue-rotate(150deg);">
         <div class="develop-grain" style="opacity:0.95;"></div>
       </div>
       <div class="caption">#${String(photoCount).padStart(3,'0')} · ${new Date().toLocaleDateString()} · ${film.label}</div>
@@ -223,10 +240,10 @@ import './style.css';
       haptic([10,40,10]);
     }, 2200 + 9000 + 13000);
 
-    enableDrag(pol, dataUrl);
+    enableDrag(pol, finalUrl, film);
   }
 
-  function enableDrag(pol, dataUrl){
+  function enableDrag(pol, finalUrl, film){
     let dragging = false, moved = false;
     let startX=0, startY=0, startLeft=0, startTop=0;
 
@@ -261,7 +278,7 @@ import './style.css';
       const droppedInTray = polRect.top + polRect.height*0.5 > trayRect.top;
 
       if(droppedInTray){
-        sendToTray(pol, dataUrl);
+        sendToTray(pol, finalUrl, film);
       } else if(!moved){
         // treat as a tap: nudge it aside a little so the next shot has room,
         // but only send to tray on a real tap-to-file gesture (double meaning avoided:
@@ -279,7 +296,7 @@ import './style.css';
     pol.addEventListener('pointercancel', endDrag);
   }
 
-  function sendToTray(pol, dataUrl){
+  function sendToTray(pol, finalUrl, film){
     if(!pol.parentElement) return;
     const trayRect = tray.getBoundingClientRect();
     const polRect = pol.getBoundingClientRect();
@@ -294,24 +311,24 @@ import './style.css';
 
     setTimeout(()=>{
       pol.remove();
-      addThumb(dataUrl);
+      addThumb(finalUrl, film);
     }, 520);
   }
 
-  function addThumb(dataUrl){
+  function addThumb(dataUrl, film){
     const t = document.createElement('div');
     t.className = 'tray-thumb';
     const rot = (Math.random()*8-4).toFixed(1);
     t.style.transform = `rotate(${rot}deg)`;
     t.innerHTML = `<div class="shot"><img src="${dataUrl}"></div>`;
-    t.addEventListener('click', ()=> openViewer(dataUrl));
+    t.addEventListener('click', ()=> openViewer(dataUrl, film));
     tray.appendChild(t);
     tray.scrollLeft = tray.scrollWidth;
 
     // file it away in the print box automatically, with a little "settling in" delay
     setTimeout(()=>{
       flashDrawerTab();
-      addToDrawer(dataUrl);
+      addToDrawer(dataUrl, film);
     }, 350);
   }
 
@@ -347,12 +364,12 @@ import './style.css';
     drawerEmpty.style.display = storedPrints.length ? 'none' : 'block';
   }
 
-  function addToDrawer(dataUrl){
+  function addToDrawer(dataUrl, film){
     storedPrints.push(dataUrl);
     const item = document.createElement('div');
     item.className = 'drawer-item';
     item.innerHTML = `<div class="shot"><img src="${dataUrl}"></div>`;
-    item.addEventListener('click', ()=> openViewer(dataUrl));
+    item.addEventListener('click', ()=> openViewer(dataUrl, film));
     drawerGrid.appendChild(item);
     refreshDrawer();
   }
@@ -360,14 +377,46 @@ import './style.css';
   // dragging a tray thumbnail up (past the tab / into the drawer) files it away
   // dragging a tray thumbnail is no longer required to file it — kept simple, tap just views it
 
+  let viewerDataUrl = '';
+  let viewerFilename = 'polaroid-cam.jpg';
 
-  function openViewer(dataUrl){
+  function openViewer(dataUrl, film){
+    viewerDataUrl = dataUrl;
+    const slug = (film ? film.label : 'photo').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    viewerFilename = `polaroid-${slug}-${Date.now()}.jpg`;
     viewerPolaroid.innerHTML = `
       <div class="shot"><img src="${dataUrl}"></div>
-      <div class="caption" style="opacity:0.8;">developed</div>
+      <div class="caption" style="opacity:0.8;">${film ? film.label : 'developed'}</div>
     `;
     viewer.style.display = 'flex';
   }
   viewer.addEventListener('click', ()=> viewer.style.display = 'none');
+
+  saveBtn.addEventListener('click', async (e)=>{
+    e.stopPropagation();
+    haptic([10,30,10]);
+
+    if(navigator.canShare){
+      try{
+        const res = await fetch(viewerDataUrl);
+        const blob = await res.blob();
+        const file = new File([blob], viewerFilename, { type: blob.type || 'image/jpeg' });
+        if(navigator.canShare({ files: [file] })){
+          await navigator.share({ files: [file], title: 'Polaroid Cam' });
+          return;
+        }
+      }catch(err){
+        if(err && err.name === 'AbortError') return; // user dismissed the share sheet
+        // otherwise fall through to a direct download below
+      }
+    }
+
+    const a = document.createElement('a');
+    a.href = viewerDataUrl;
+    a.download = viewerFilename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  });
 
 })();
