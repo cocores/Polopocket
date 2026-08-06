@@ -75,6 +75,14 @@ html, body{
   100%{ transform: translate(0,0);}
 }
 
+.crop-guide{
+  position:absolute;
+  border: 1.5px solid rgba(242,234,217,0.85);
+  box-shadow: 0 0 0 9999px rgba(0,0,0,0.48);
+  pointer-events:none;
+  transition: width 0.35s ease, height 0.35s ease, left 0.35s ease, top 0.35s ease;
+}
+
 .vf-frame{
   position:absolute; inset: 18px;
   pointer-events:none;
@@ -251,6 +259,17 @@ html, body{
   font-size:12px; color:#3a3226;
   opacity:0;
 }
+.polaroid .caption[contenteditable]{
+  padding: 0 10px;
+  cursor: text;
+  outline: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.polaroid .caption[contenteditable]:focus{
+  border-bottom: 1px dashed currentColor;
+}
 
 /* develop grain layer sits above the photo, fades out as it develops */
 .develop-grain{
@@ -287,7 +306,36 @@ html, body{
 }
 #viewer .polaroid{ position:static; width:82vw; max-width:340px; }
 .viewer-stack{
-  display:flex; flex-direction:column; align-items:center; gap:18px;
+  display:flex; flex-direction:column; align-items:center; gap:16px;
+  max-width:90vw;
+}
+.icon-btn{
+  width:34px; height:34px; border-radius:50%;
+  background: rgba(0,0,0,0.35);
+  border:1px solid rgba(242,234,217,0.3);
+  color: var(--cream); font-size:15px;
+  cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  flex:0 0 auto;
+}
+.icon-btn:active{ transform: scale(0.94); }
+.viewer-close{
+  position:absolute; top:18px; right:18px;
+}
+.frame-swatches{
+  display:flex; gap:10px; flex-wrap:wrap; justify-content:center;
+}
+.swatch{
+  width:26px; height:26px; border-radius:50%;
+  border:2px solid rgba(242,234,217,0.35);
+  cursor:pointer; padding:0;
+}
+.swatch.active{
+  border-color: var(--amber);
+  box-shadow: 0 0 0 2px var(--charcoal-deep), 0 0 0 4px var(--amber);
+}
+.viewer-actions{
+  display:flex; gap:10px; flex-wrap:wrap; justify-content:center;
 }
 .save-btn{
   font-family: inherit;
@@ -301,6 +349,82 @@ html, body{
 }
 .save-btn:active{ transform: scale(0.96); }
 .save-btn:focus-visible{ outline:1px solid var(--sage); outline-offset:3px; }
+
+/* ---------- FILM PICKER ---------- */
+#filmPicker{
+  position:fixed; inset:0; background:rgba(11,10,8,0.92);
+  display:none; align-items:center; justify-content:center;
+  z-index:55; padding:24px;
+}
+#filmPicker.open{ display:flex; }
+.film-picker-card{
+  width:100%; max-width:360px; max-height:78vh;
+  background: linear-gradient(180deg, #241a14, #17110d 40%, #120d0a);
+  border:1px solid rgba(184,118,58,0.35);
+  border-radius:16px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.55);
+  display:flex; flex-direction:column;
+  overflow:hidden;
+}
+.film-picker-header{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:16px 16px 12px 18px;
+  flex:0 0 auto;
+}
+.film-picker-title{
+  font-family:'Special Elite', monospace;
+  font-size:15px; letter-spacing:0.06em; color:var(--cream);
+}
+.film-picker-list{
+  flex:1; overflow-y:auto; min-height:0;
+  padding:0 10px 10px 10px;
+  display:flex; flex-direction:column; gap:6px;
+}
+.film-row{
+  display:flex; flex-direction:column; align-items:flex-start; gap:2px;
+  text-align:left;
+  padding:10px 12px;
+  border-radius:10px;
+  border:1px solid transparent;
+  background:rgba(242,234,217,0.04);
+  color: var(--cream-dim);
+  cursor:pointer;
+  font-family: inherit;
+}
+.film-row.active{
+  border-color: var(--amber-dim);
+  background: rgba(184,118,58,0.14);
+}
+.film-row.locked{ opacity:0.65; }
+.film-row-top{
+  display:flex; align-items:center; gap:8px; width:100%;
+}
+.film-row-name{
+  font-size:13px; color:var(--cream); letter-spacing:0.03em;
+  flex:1;
+}
+.pro-badge{
+  font-size:9px; letter-spacing:0.08em;
+  color: var(--charcoal-deep);
+  background: var(--amber);
+  border-radius:8px;
+  padding:1px 6px;
+}
+.film-row-lock{ font-size:12px; opacity:0.8; }
+.film-row-note{
+  font-size:10.5px; color:var(--cream-dim); opacity:0.75;
+}
+.film-picker-unlock{
+  flex:0 0 auto;
+  border-top:1px solid rgba(184,118,58,0.25);
+  padding:14px 18px calc(14px + env(safe-area-inset-bottom));
+  text-align:center;
+}
+.film-picker-unlock p{
+  font-size:11.5px; color:var(--cream-dim); line-height:1.5;
+  margin:0 0 10px 0;
+}
+.hud-caret{ opacity:0.6; margin-left:2px; }
 
 .hint{
   position:absolute; bottom:78px; left:0; right:0;

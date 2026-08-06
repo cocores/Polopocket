@@ -13,6 +13,7 @@
     <div id="demoBg"></div>
     <div class="vf-vignette"></div>
     <div class="vf-grain"></div>
+    <div class="crop-guide" id="cropGuide"></div>
     <div class="vf-frame">
       <div class="vf-corner-tl"></div><div class="vf-corner-tr"></div>
       <div class="vf-corner-bl"></div><div class="vf-corner-br"></div>
@@ -56,10 +57,29 @@
   <div class="tab-chevron">▲</div>
 </div>
 
+<div id="filmPicker">
+  <div class="film-picker-card">
+    <div class="film-picker-header">
+      <span class="film-picker-title">Choose Film</span>
+      <button class="icon-btn" id="filmPickerClose" type="button" aria-label="Close">✕</button>
+    </div>
+    <div class="film-picker-list" id="filmPickerList"></div>
+    <div class="film-picker-unlock" id="filmPickerUnlock" hidden>
+      <p>Discontinued stocks (Spectra, Type 500, Type 100, i-Zone) are a premium extra.</p>
+      <button class="save-btn" id="unlockBtn" type="button">🔓 Unlock Premium Films</button>
+    </div>
+  </div>
+</div>
+
 <div id="viewer">
+  <button class="icon-btn viewer-close" id="viewerClose" type="button" aria-label="Close">✕</button>
   <div class="viewer-stack">
     <div class="polaroid" id="viewerPolaroid"></div>
-    <button class="save-btn" id="saveBtn" type="button">⭳ Save to device</button>
+    <div class="frame-swatches" id="frameSwatches" role="group" aria-label="Choose frame style"></div>
+    <div class="viewer-actions">
+      <button class="save-btn" id="saveBtn" type="button">⭳ Save Image</button>
+      <button class="save-btn" id="saveVideoBtn" type="button">🎞 Export Video</button>
+    </div>
   </div>
 </div>
 
