@@ -243,6 +243,93 @@ import './style.css';
     if(navigator.vibrate) navigator.vibrate(ms);
   }
 
+  // ---------- shutter sound ----------
+  // no real Polaroid recording to draw from, so the mechanical clack +
+  // motor whir of an ejecting print is synthesized from oscillators/noise
+  let audioCtx = null;
+  function getAudioCtx(){
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if(!Ctx) return null;
+    if(!audioCtx) audioCtx = new Ctx();
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+  }
+
+  function noiseBuffer(ctx, duration){
+    const buffer = ctx.createBuffer(1, Math.max(1, Math.floor(ctx.sampleRate * duration)), ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for(let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    return buffer;
+  }
+
+  function playShutterSound(){
+    const ctx = getAudioCtx();
+    if(!ctx) return;
+    const now = ctx.currentTime;
+
+    // mechanical clack: a short decaying noise burst plus a low thunk
+    const clickDur = 0.05;
+    const click = ctx.createBufferSource();
+    click.buffer = noiseBuffer(ctx, clickDur);
+    const clickFilter = ctx.createBiquadFilter();
+    clickFilter.type = 'highpass';
+    clickFilter.frequency.value = 1500;
+    const clickGain = ctx.createGain();
+    clickGain.gain.setValueAtTime(0.9, now);
+    clickGain.gain.exponentialRampToValueAtTime(0.001, now + clickDur);
+    click.connect(clickFilter).connect(clickGain).connect(ctx.destination);
+    click.start(now);
+    click.stop(now + clickDur);
+
+    const thunk = ctx.createOscillator();
+    thunk.type = 'sine';
+    thunk.frequency.setValueAtTime(180, now);
+    thunk.frequency.exponentialRampToValueAtTime(60, now + 0.08);
+    const thunkGain = ctx.createGain();
+    thunkGain.gain.setValueAtTime(0.5, now);
+    thunkGain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+    thunk.connect(thunkGain).connect(ctx.destination);
+    thunk.start(now);
+    thunk.stop(now + 0.1);
+
+    // motor whir as the print ejects, timed to the eject slide animation
+    const whirStart = now + 0.08;
+    const whirDur = 1.05;
+
+    const motor = ctx.createOscillator();
+    motor.type = 'sawtooth';
+    motor.frequency.setValueAtTime(90, whirStart);
+    motor.frequency.linearRampToValueAtTime(112, whirStart + 0.15);
+    motor.frequency.setValueAtTime(105, whirStart + whirDur - 0.2);
+    motor.frequency.exponentialRampToValueAtTime(40, whirStart + whirDur);
+    const motorFilter = ctx.createBiquadFilter();
+    motorFilter.type = 'lowpass';
+    motorFilter.frequency.value = 900;
+    const motorGain = ctx.createGain();
+    motorGain.gain.setValueAtTime(0.0001, whirStart);
+    motorGain.gain.exponentialRampToValueAtTime(0.22, whirStart + 0.06);
+    motorGain.gain.setValueAtTime(0.22, whirStart + whirDur - 0.25);
+    motorGain.gain.exponentialRampToValueAtTime(0.001, whirStart + whirDur);
+    motor.connect(motorFilter).connect(motorGain).connect(ctx.destination);
+    motor.start(whirStart);
+    motor.stop(whirStart + whirDur);
+
+    const motorNoise = ctx.createBufferSource();
+    motorNoise.buffer = noiseBuffer(ctx, whirDur);
+    const motorNoiseFilter = ctx.createBiquadFilter();
+    motorNoiseFilter.type = 'bandpass';
+    motorNoiseFilter.frequency.value = 1200;
+    motorNoiseFilter.Q.value = 0.7;
+    const motorNoiseGain = ctx.createGain();
+    motorNoiseGain.gain.setValueAtTime(0.0001, whirStart);
+    motorNoiseGain.gain.exponentialRampToValueAtTime(0.05, whirStart + 0.06);
+    motorNoiseGain.gain.setValueAtTime(0.05, whirStart + whirDur - 0.25);
+    motorNoiseGain.gain.exponentialRampToValueAtTime(0.001, whirStart + whirDur);
+    motorNoise.connect(motorNoiseFilter).connect(motorNoiseGain).connect(ctx.destination);
+    motorNoise.start(whirStart);
+    motorNoise.stop(whirStart + whirDur);
+  }
+
   function loadImage(src){
     return new Promise((resolve, reject)=>{
       const img = new Image();
@@ -305,6 +392,7 @@ import './style.css';
 
   shutter.addEventListener('click', ()=>{
     haptic(20);
+    playShutterSound();
     enableMotionOnce();
     if(flashOn){ flashOverlay.classList.remove('fire'); void flashOverlay.offsetWidth; flashOverlay.classList.add('fire'); }
 
