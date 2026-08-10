@@ -339,6 +339,18 @@ import './style.css';
     });
   }
 
+  // canvas text only picks up a webfont once it's actually finished loading —
+  // this makes sure the marker face is ready before any export draws on it
+  let markerFontReady = null;
+  function ensureMarkerFont(){
+    if(!markerFontReady){
+      markerFontReady = (document.fonts && document.fonts.load)
+        ? document.fonts.load("32px 'Permanent Marker'").catch(()=>{})
+        : Promise.resolve();
+    }
+    return markerFontReady;
+  }
+
   function captureFrame(aspect){
     // keep roughly the same pixel budget across shapes, just reflow it
     // to the chosen film's real width/height proportions
@@ -408,6 +420,7 @@ import './style.css';
       finalUrl,
       film,
       caption: `${new Date().toLocaleDateString()} · ${film.label}`,
+      captionTilt: (Math.random() * 4 - 2).toFixed(1),
       frame: FRAME_STYLES[0],
     };
     ejectPolaroid(record);
@@ -483,7 +496,7 @@ import './style.css';
         <img src="${rawUrl}" style="filter: ${filterString(BLANK_LOOK)};">
         <div class="develop-grain" style="opacity:0.95;"></div>
       </div>
-      <div class="caption">${record.caption}</div>
+      <div class="caption" style="transform: rotate(${record.captionTilt}deg);">${record.caption}</div>
       <div class="drag-hint">slide me aside →</div>
     `;
     photoLayer.appendChild(pol);
@@ -705,7 +718,7 @@ import './style.css';
     currentRecord = record;
     viewerPolaroid.innerHTML = `
       <div class="shot" style="aspect-ratio: ${record.film.aspect};"><img src="${record.finalUrl}"></div>
-      <div class="caption" contenteditable="true" spellcheck="false" style="opacity:1;">${record.caption}</div>
+      <div class="caption" contenteditable="true" spellcheck="false" style="opacity:1; transform: rotate(${record.captionTilt}deg);">${record.caption}</div>
     `;
     applyFrameToViewer(record);
     renderFrameSwatches(record);
@@ -773,7 +786,7 @@ import './style.css';
     if(ctx.roundRect){ ctx.beginPath(); ctx.roundRect(0, 0, outW, cardH, 7); ctx.fill(); }
     else ctx.fillRect(0, 0, outW, cardH);
 
-    const img = await loadImage(record.finalUrl);
+    const [img] = await Promise.all([loadImage(record.finalUrl), ensureMarkerFont()]);
     ctx.drawImage(img, sidePad, topPad, photoW, photoH);
 
     drawCaption(ctx, record, outW / 2, topPad + photoH + bottomPad * 0.55, outW - sidePad * 2);
@@ -781,18 +794,24 @@ import './style.css';
     return new Promise((resolve)=> canvas.toBlob(resolve, 'image/jpeg', 0.92));
   }
 
+  // draws the caption like it was written in marker on the print's
+  // border — same font and hand-tilt as the on-screen version
   function drawCaption(ctx, record, x, y, maxWidth){
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate((Number(record.captionTilt) || 0) * Math.PI / 180);
     ctx.fillStyle = record.frame.ink;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    let fontSize = Math.round(maxWidth * 0.042);
+    let fontSize = Math.round(maxWidth * 0.055);
     const text = record.caption || '';
-    ctx.font = `${fontSize}px 'Courier New', monospace`;
+    ctx.font = `${fontSize}px 'Permanent Marker', cursive`;
     while(ctx.measureText(text).width > maxWidth && fontSize > 10){
       fontSize -= 1;
-      ctx.font = `${fontSize}px 'Courier New', monospace`;
+      ctx.font = `${fontSize}px 'Permanent Marker', cursive`;
     }
-    ctx.fillText(text, x, y);
+    ctx.fillText(text, 0, 0);
+    ctx.restore();
   }
 
   saveBtn.addEventListener('click', async (e)=>{
@@ -826,7 +845,7 @@ import './style.css';
     const canvas = document.createElement('canvas');
     canvas.width = outW; canvas.height = outH;
     const ctx = canvas.getContext('2d');
-    const img = await loadImage(record.rawUrl);
+    const [img] = await Promise.all([loadImage(record.rawUrl), ensureMarkerFont()]);
 
     function drawFrame(progress){
       const bgGrad = ctx.createLinearGradient(0, 0, 0, outH);
