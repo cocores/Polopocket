@@ -382,7 +382,22 @@ import './style.css';
       if(facingMode === 'user'){
         ctx.translate(w,0); ctx.scale(-1,1);
       }
-      ctx.drawImage(video, 0, 0, w, h);
+      // center-crop the source frame to the target aspect first (like the
+      // live preview's object-fit:cover) instead of stretching it to fit —
+      // otherwise anything but a square film squishes the photo
+      const vw = video.videoWidth, vh = video.videoHeight;
+      if(vw > 0 && vh > 0){
+        const videoAspect = vw / vh;
+        let sx, sy, sw, sh;
+        if(videoAspect > aspect){
+          sh = vh; sw = vh * aspect; sx = (vw - sw) / 2; sy = 0;
+        } else {
+          sw = vw; sh = vw / aspect; sx = 0; sy = (vh - sh) / 2;
+        }
+        ctx.drawImage(video, sx, sy, sw, sh, 0, 0, w, h);
+      } else {
+        ctx.drawImage(video, 0, 0, w, h);
+      }
     }
     return canvas;
   }
