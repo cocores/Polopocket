@@ -53,10 +53,10 @@ import './style.css';
     };
   }
 
-  // real instant film starts as a nearly blank white rectangle, then the
-  // image swims up pale before the color and warmth of the stock bloom in
-  const BLANK_LOOK = { brightness: 2.4, contrast: 0.22, saturate: 0 };
-  const PALE_LOOK = { brightness: 1.4, contrast: 0.65, saturate: 0.3, sepia: 0.05 };
+  // the print starts almost black, then a dark, cool, ghostly image swims
+  // up before the color and warmth of the stock bloom in
+  const BLANK_LOOK = { brightness: 0.06, contrast: 1.2, saturate: 0, sepia: 0.3, hueRotate: 150 };
+  const PALE_LOOK = { brightness: 0.55, contrast: 1.35, saturate: 0.15, sepia: 0.15, hueRotate: 60 };
 
   // real Polaroid film types — image-area aspect ratio (width/height)
   // shapes the print itself, and a grade suited to each stock's era
@@ -510,9 +510,9 @@ import './style.css';
       pol.style.transform = `scale(1) rotate(${restRot}deg)`;
     });
 
-    // ---- phased chemical development, ~24s total, like real instant film ----
-    // phase 1: a nearly blank white rectangle, chemicals spreading under the surface
-    // phase 2: a pale, hazy image swims up out of the white
+    // ---- phased chemical development, ~29s total, like real instant film ----
+    // phase 1: a nearly black rectangle, chemicals spreading under the surface
+    // phase 2: a dark, cool, ghostly image swims up out of the black
     // phase 3: color and warmth slowly bloom in as the dyes finish coupling
     const img = pol.querySelector('img');
     const grain = pol.querySelector('.develop-grain');
@@ -524,28 +524,28 @@ import './style.css';
 
     const t1 = setTimeout(()=>{
       // phase 2 starts
-      img.style.transition = 'filter 9s cubic-bezier(.33,.1,.4,1)';
+      img.style.transition = 'filter 10.5s cubic-bezier(.33,.1,.4,1)';
       img.style.filter = filterString(PALE_LOOK);
-      grain.style.transition = 'opacity 9s ease-out';
+      grain.style.transition = 'opacity 10.5s ease-out';
       grain.style.opacity = '0.5';
       haptic(8);
-    }, 2200);
+    }, 2600);
 
     const t2 = setTimeout(()=>{
       // phase 3: color blooms in slowly, like real dye coupling — settling
       // into whatever stock was loaded when the shot was taken
-      img.style.transition = 'filter 13s cubic-bezier(.16,.5,.3,1)';
+      img.style.transition = 'filter 15s cubic-bezier(.16,.5,.3,1)';
       img.style.filter = filterString(film.final);
-      grain.style.transition = 'opacity 6s ease-out';
+      grain.style.transition = 'opacity 7s ease-out';
       grain.style.opacity = '0';
-    }, 2200 + 9000);
+    }, 2600 + 10500);
 
     const t3 = setTimeout(()=>{
       caption.style.transition = 'opacity 2s ease';
       caption.style.opacity = '0.8';
       haptic([10,40,10]);
       developingPolaroids.delete(pol);
-    }, 2200 + 9000 + 13000);
+    }, 2600 + 10500 + 15000);
 
     developingPolaroids.set(pol, { img, grain, caption, film, timers: [t1, t2, t3] });
 
