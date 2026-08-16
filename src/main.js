@@ -33,6 +33,8 @@ import './style.css';
   let facingMode = 'environment';
   let demoMode = false;
   let stream = null;
+  let videoTrack = null;
+  let focusRevertTimer = null;
 
   // ---------- filter model ----------
   // every look (blank paper, pale reveal, or a film's final grade) is a
@@ -152,6 +154,69 @@ import './style.css';
     };
   }
 
+  // maps a tap on the (possibly mirrored, object-fit:cover) viewfinder back
+  // to a normalized [0,1] point in the raw sensor frame, for pointsOfInterest
+  function videoPointFromViewfinderXY(x, y){
+    const vw = video.videoWidth, vh = video.videoHeight;
+    const vfRect = viewfinder.getBoundingClientRect();
+    const cw = vfRect.width, ch = vfRect.height;
+    if(!vw || !vh || !cw || !ch) return null;
+
+    const scale = Math.max(cw / vw, ch / vh);
+    const offsetX = (vw * scale - cw) / 2;
+    const offsetY = (vh * scale - ch) / 2;
+
+    let px = (x + offsetX) / scale;
+    const py = (y + offsetY) / scale;
+    if(facingMode === 'user') px = vw - px;
+
+    return {
+      x: Math.min(1, Math.max(0, px / vw)),
+      y: Math.min(1, Math.max(0, py / vh)),
+    };
+  }
+
+  // continuous autofocus is the resting state; a tap briefly locks focus
+  // (and exposure, where the hardware supports it) to a single point,
+  // then hands back to continuous — the same rhythm as a phone camera
+  async function applyContinuousFocus(){
+    if(!videoTrack || !videoTrack.getCapabilities) return;
+    const caps = videoTrack.getCapabilities();
+    if(!caps.focusMode || !caps.focusMode.includes('continuous')) return;
+    try{ await videoTrack.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }); }catch(e){}
+  }
+
+  async function applyManualFocus(point){
+    if(!videoTrack || !videoTrack.getCapabilities) return;
+    const caps = videoTrack.getCapabilities();
+    if(!caps.focusMode || !caps.focusMode.includes('manual')) return;
+    const advanced = { focusMode: 'manual' };
+    if(caps.pointsOfInterest) advanced.pointsOfInterest = [{ x: point.x, y: point.y }];
+    try{ await videoTrack.applyConstraints({ advanced: [advanced] }); }catch(e){}
+    clearTimeout(focusRevertTimer);
+    focusRevertTimer = setTimeout(applyContinuousFocus, 4000);
+  }
+
+  // isTap: a real user tap locks focus at that point (amber ring, snaps in);
+  // otherwise it's the camera "waking up" and hunting for focus on its own
+  function triggerFocus(x, y, isTap){
+    focusReticle.style.left = x + 'px';
+    focusReticle.style.top = y + 'px';
+    focusReticle.classList.remove('show', 'auto', 'tap');
+    void focusReticle.offsetWidth;
+    focusReticle.classList.add('show', isTap ? 'tap' : 'auto');
+
+    if(isTap && !demoMode){
+      const point = videoPointFromViewfinderXY(x, y);
+      if(point) applyManualFocus(point);
+    }
+  }
+
+  function autofocusAtCenter(){
+    const vfRect = viewfinder.getBoundingClientRect();
+    triggerFocus(vfRect.width / 2, vfRect.height / 2, false);
+  }
+
   function updateLivePreviewFilter(){
     const css = filterString(FILM_STOCKS[filmIndex].final);
     video.style.filter = css;
@@ -256,11 +321,16 @@ import './style.css';
       demoBg.style.display = 'none';
       video.style.display = 'block';
       permMsg.style.display = 'none';
+      videoTrack = stream.getVideoTracks()[0];
+      applyContinuousFocus();
+      video.addEventListener('loadedmetadata', autofocusAtCenter, { once: true });
     }catch(e){
       demoMode = true;
+      videoTrack = null;
       video.style.display = 'none';
       demoBg.style.display = 'block';
       permMsg.style.display = 'flex';
+      requestAnimationFrame(autofocusAtCenter);
     }
   }
   startCamera();
@@ -277,13 +347,10 @@ import './style.css';
 
   viewfinder.addEventListener('pointerdown', (e)=>{
     if(e.target.closest('#deck') || e.target === shutter || e.target.closest('#filmHud')) return;
+    if(e.target.closest('.polaroid') || e.target.closest('.tray')) return;
     const rect = viewfinder.getBoundingClientRect();
     const x = e.clientX - rect.left, y = e.clientY - rect.top;
-    focusReticle.style.left = x + 'px';
-    focusReticle.style.top = y + 'px';
-    focusReticle.classList.remove('show');
-    void focusReticle.offsetWidth;
-    focusReticle.classList.add('show');
+    triggerFocus(x, y, true);
   });
 
   function haptic(ms){
