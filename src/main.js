@@ -105,6 +105,41 @@ import './style.css';
     cropGuide.style.top = ((vfRect.height - h) / 2) + 'px';
   }
 
+  // maps the crop-guide's on-screen box back to native video pixel
+  // coordinates, so the capture matches exactly what the guide showed —
+  // accounting for the object-fit:cover scale/offset and, for the front
+  // camera, the fact that the display is mirrored but the raw frame isn't
+  function guideCropInVideoSpace(){
+    const vw = video.videoWidth, vh = video.videoHeight;
+    const vfRect = viewfinder.getBoundingClientRect();
+    const cw = vfRect.width, ch = vfRect.height;
+    if(!vw || !vh || !cw || !ch) return null;
+
+    const scale = Math.max(cw / vw, ch / vh);
+    const offsetX = (vw * scale - cw) / 2;
+    const offsetY = (vh * scale - ch) / 2;
+
+    const gx = parseFloat(cropGuide.style.left) || 0;
+    const gy = parseFloat(cropGuide.style.top) || 0;
+    const gw = parseFloat(cropGuide.style.width) || cw;
+    const gh = parseFloat(cropGuide.style.height) || ch;
+
+    let sx = (gx + offsetX) / scale;
+    const sy = (gy + offsetY) / scale;
+    const sw = gw / scale;
+    const sh = gh / scale;
+
+    if(facingMode === 'user'){
+      sx = vw - sx - sw; // display is mirrored via CSS; the raw frame isn't
+    }
+
+    return {
+      sx: Math.max(0, Math.min(sx, vw - sw)),
+      sy: Math.max(0, Math.min(sy, vh - sh)),
+      sw, sh,
+    };
+  }
+
   function updateLivePreviewFilter(){
     const css = filterString(FILM_STOCKS[filmIndex].final);
     video.style.filter = css;
@@ -388,21 +423,28 @@ import './style.css';
       if(facingMode === 'user'){
         ctx.translate(w,0); ctx.scale(-1,1);
       }
-      // center-crop the source frame to the target aspect first (like the
-      // live preview's object-fit:cover) instead of stretching it to fit —
-      // otherwise anything but a square film squishes the photo
-      const vw = video.videoWidth, vh = video.videoHeight;
-      if(vw > 0 && vh > 0){
-        const videoAspect = vw / vh;
-        let sx, sy, sw, sh;
-        if(videoAspect > aspect){
-          sh = vh; sw = vh * aspect; sx = (vw - sw) / 2; sy = 0;
-        } else {
-          sw = vw; sh = vw / aspect; sx = 0; sy = (vh - sh) / 2;
-        }
-        ctx.drawImage(video, sx, sy, sw, sh, 0, 0, w, h);
+      // capture exactly the region the crop-guide was showing, not just
+      // any center-crop at the right aspect ratio — what you see boxed in
+      // the viewfinder is what you get, framing included
+      const crop = guideCropInVideoSpace();
+      if(crop){
+        ctx.drawImage(video, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, w, h);
       } else {
-        ctx.drawImage(video, 0, 0, w, h);
+        // fallback for the rare case video metadata isn't ready yet:
+        // a plain center-crop to the target aspect ratio
+        const vw = video.videoWidth, vh = video.videoHeight;
+        if(vw > 0 && vh > 0){
+          const videoAspect = vw / vh;
+          let sx, sy, sw, sh;
+          if(videoAspect > aspect){
+            sh = vh; sw = vh * aspect; sx = (vw - sw) / 2; sy = 0;
+          } else {
+            sw = vw; sh = vw / aspect; sx = 0; sy = (vh - sh) / 2;
+          }
+          ctx.drawImage(video, sx, sy, sw, sh, 0, 0, w, h);
+        } else {
+          ctx.drawImage(video, 0, 0, w, h);
+        }
       }
     }
     return canvas;
