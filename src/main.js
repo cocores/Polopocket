@@ -760,6 +760,22 @@ import './style.css';
   }
 
   async function shareOrDownload(blob, filename, mimeType){
+    // when embedded as a Claude Artifact, plain <a download> links and
+    // blob URLs are inert for viewers — the host only lets a save reach
+    // them through this capability, which shows a real save prompt
+    if(window.claude && window.claude.use){
+      try{
+        const downloads = await window.claude.use('downloads');
+        if(downloads){
+          await downloads.save({ filename, data: blob });
+          return;
+        }
+      }catch(err){
+        if(err && (err.code === 'declined' || err.code === 'rate_limited')) return; // viewer said no / already asking
+        // otherwise fall through to the web-standard paths below
+      }
+    }
+
     if(navigator.canShare){
       try{
         const file = new File([blob], filename, { type: mimeType });
