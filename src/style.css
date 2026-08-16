@@ -332,6 +332,13 @@ html, body{
 .viewer-close{
   position:absolute; top:18px; right:18px;
 }
+.customize-group{
+  display:flex; flex-direction:column; align-items:center; gap:8px;
+}
+.customize-label{
+  font-size:9.5px; letter-spacing:0.12em; text-transform:uppercase;
+  color: var(--cream-dim); opacity:0.65;
+}
 .frame-swatches{
   display:flex; gap:10px; flex-wrap:wrap; justify-content:center;
 }
@@ -343,6 +350,24 @@ html, body{
 .swatch.active{
   border-color: var(--amber);
   box-shadow: 0 0 0 2px var(--charcoal-deep), 0 0 0 4px var(--amber);
+}
+.style-chips{
+  display:flex; gap:8px; flex-wrap:wrap; justify-content:center;
+}
+.style-chip{
+  font-family: inherit;
+  font-size:11px; letter-spacing:0.03em;
+  color: var(--cream-dim);
+  background: rgba(242,234,217,0.06);
+  border: 1px solid rgba(242,234,217,0.22);
+  border-radius:14px;
+  padding:6px 13px;
+  cursor:pointer;
+}
+.style-chip.active{
+  color: var(--charcoal-deep);
+  background: var(--amber);
+  border-color: var(--amber);
 }
 .viewer-actions{
   display:flex; gap:10px; flex-wrap:wrap; justify-content:center;

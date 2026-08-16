@@ -86,7 +86,14 @@
   <button class="icon-btn viewer-close" id="viewerClose" type="button" aria-label="Close">✕</button>
   <div class="viewer-stack">
     <div class="polaroid" id="viewerPolaroid"></div>
-    <div class="frame-swatches" id="frameSwatches" role="group" aria-label="Choose frame style"></div>
+    <div class="customize-group">
+      <span class="customize-label">Frame</span>
+      <div class="frame-swatches" id="frameSwatches" role="group" aria-label="Choose frame style"></div>
+    </div>
+    <div class="customize-group">
+      <span class="customize-label">Film Style</span>
+      <div class="style-chips" id="styleChips" role="group" aria-label="Choose photo style"></div>
+    </div>
     <div class="viewer-actions">
       <button class="save-btn" id="saveBtn" type="button">⭳ Save Image</button>
       <button class="save-btn" id="saveVideoBtn" type="button">🎞 Export Video</button>

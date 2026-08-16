@@ -25,6 +25,7 @@ import './style.css';
   const viewerClose = document.getElementById('viewerClose');
   const viewerPolaroid = document.getElementById('viewerPolaroid');
   const frameSwatches = document.getElementById('frameSwatches');
+  const styleChips = document.getElementById('styleChips');
   const saveBtn = document.getElementById('saveBtn');
   const saveVideoBtn = document.getElementById('saveVideoBtn');
 
@@ -84,6 +85,17 @@ import './style.css';
     { label: 'Dusty Rose', bg: '#e3c3c2', ink: '#4a2c2b' },
     { label: 'Sky', bg: '#c7d6e0', ink: '#25333d' },
     { label: 'Amber', bg: '#e8c893', ink: '#4a3113' },
+  ];
+
+  // a finishing filter layered on top of the film's own baked-in grade —
+  // chosen per-photo in the viewer, same as frame style
+  const PHOTO_STYLES = [
+    { label: 'Original', filter: {} },
+    { label: 'Mono', filter: { grayscale: 1, contrast: 1.1 } },
+    { label: 'Sepia', filter: { sepia: 0.75, contrast: 1.05, saturate: 0.9 } },
+    { label: 'Vivid', filter: { saturate: 1.5, contrast: 1.15 } },
+    { label: 'Faded', filter: { brightness: 1.12, saturate: 0.5, contrast: 0.85 } },
+    { label: 'Noir', filter: { grayscale: 0.7, contrast: 1.35, brightness: 0.85 } },
   ];
 
   function renderFilmHud(){
@@ -485,6 +497,7 @@ import './style.css';
       caption: `${new Date().toLocaleDateString()} · ${film.label}`,
       captionTilt: (Math.random() * 4 - 2).toFixed(1),
       frame: FRAME_STYLES[0],
+      style: PHOTO_STYLES[0],
     };
     ejectPolaroid(record);
   });
@@ -761,9 +774,20 @@ import './style.css';
     if(cap) cap.style.color = record.frame.ink;
   }
 
+  function applyStyleToViewer(record){
+    const img = viewerPolaroid.querySelector('.shot img');
+    if(img) img.style.filter = filterString(record.style.filter);
+  }
+
   function renderFrameSwatches(record){
     frameSwatches.innerHTML = FRAME_STYLES.map((f, i) => `
       <button type="button" class="swatch${f === record.frame ? ' active' : ''}" data-i="${i}" style="background:${f.bg}" aria-label="${f.label}" title="${f.label}"></button>
+    `).join('');
+  }
+
+  function renderStyleChips(record){
+    styleChips.innerHTML = PHOTO_STYLES.map((s, i) => `
+      <button type="button" class="style-chip${s === record.style ? ' active' : ''}" data-i="${i}">${s.label}</button>
     `).join('');
   }
 
@@ -777,6 +801,16 @@ import './style.css';
     haptic(10);
   });
 
+  styleChips.addEventListener('click', (e)=>{
+    const btn = e.target.closest('.style-chip');
+    if(!btn || !currentRecord) return;
+    e.stopPropagation();
+    currentRecord.style = PHOTO_STYLES[Number(btn.dataset.i)];
+    applyStyleToViewer(currentRecord);
+    renderStyleChips(currentRecord);
+    haptic(10);
+  });
+
   function openViewer(record){
     currentRecord = record;
     viewerPolaroid.innerHTML = `
@@ -785,6 +819,8 @@ import './style.css';
     `;
     applyFrameToViewer(record);
     renderFrameSwatches(record);
+    applyStyleToViewer(record);
+    renderStyleChips(record);
 
     const cap = viewerPolaroid.querySelector('.caption');
     cap.addEventListener('keydown', (e)=>{
@@ -866,7 +902,9 @@ import './style.css';
     else ctx.fillRect(0, 0, outW, cardH);
 
     const [img] = await Promise.all([loadImage(record.finalUrl), ensureMarkerFont()]);
+    ctx.filter = filterString(record.style.filter);
     ctx.drawImage(img, sidePad, topPad, photoW, photoH);
+    ctx.filter = 'none'; // the style filter shouldn't bleed into the caption below
 
     drawCaption(ctx, record, outW / 2, topPad + photoH + bottomPad * 0.55, outW - sidePad * 2);
 
@@ -944,7 +982,7 @@ import './style.css';
       ctx.beginPath();
       ctx.rect(cardX + sidePad, cardY + topPad, photoW, photoH);
       ctx.clip();
-      ctx.filter = filterString(params);
+      ctx.filter = `${filterString(params)} ${filterString(record.style.filter)}`;
       ctx.drawImage(img, cardX + sidePad, cardY + topPad, photoW, photoH);
       ctx.restore();
 
