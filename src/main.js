@@ -29,7 +29,7 @@ import './style.css';
   const saveVideoBtn = document.getElementById('saveVideoBtn');
 
   let flashOn = false;
-  let facingMode = 'user';
+  let facingMode = 'environment';
   let demoMode = false;
   let stream = null;
 
