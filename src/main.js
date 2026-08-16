@@ -361,6 +361,12 @@ import './style.css';
     canvas.width = w; canvas.height = h;
     const ctx = canvas.getContext('2d');
 
+    // a real flash brightens and washes out whatever gets drawn next —
+    // ctx.filter applies to every draw call below, demo mode included
+    if(flashOn){
+      ctx.filter = 'brightness(1.55) contrast(0.88) saturate(0.82)';
+    }
+
     if(demoMode){
       // generate a moody procedural "photo" as a stand-in
       const g = ctx.createLinearGradient(0,0,0,h);
