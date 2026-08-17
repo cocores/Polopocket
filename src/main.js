@@ -124,16 +124,19 @@ import './style.css';
   ];
 
   // a finishing filter layered on top of the film's own baked-in grade —
-  // chosen per-photo in the viewer, same as frame style
+  // chosen per-photo in the viewer, same as frame style. Bucketed into
+  // groups (each style tagged with its group) so the viewer can show one
+  // group of chips at a time instead of one long scrolling row
   const PHOTO_STYLES = [
-    { label: 'Original', filter: {} },
-    { label: 'Mono', filter: { grayscale: 1, contrast: 1.1 } },
-    { label: 'Sepia', filter: { sepia: 0.75, contrast: 1.05, saturate: 0.9 } },
-    { label: 'Vivid', filter: { saturate: 1.5, contrast: 1.15 } },
-    { label: 'Faded', filter: { brightness: 1.12, saturate: 0.5, contrast: 0.85 } },
-    { label: 'Noir', filter: { grayscale: 0.7, contrast: 1.35, brightness: 0.85 } },
+    { label: 'Original', group: 'Classic', filter: {} },
+    { label: 'Mono', group: 'Classic', filter: { grayscale: 1, contrast: 1.1 } },
+    { label: 'Noir', group: 'Classic', filter: { grayscale: 0.7, contrast: 1.35, brightness: 0.85 } },
+    { label: 'Sepia', group: 'Classic', filter: { sepia: 0.75, contrast: 1.05, saturate: 0.9 } },
+    { label: 'Vivid', group: 'Color', filter: { saturate: 1.5, contrast: 1.15 } },
+    { label: 'Faded', group: 'Color', filter: { brightness: 1.12, saturate: 0.5, contrast: 0.85 } },
+    { label: 'Cross Process', group: 'Color', filter: { saturate: 1.6, contrast: 1.2, hueRotate: -12, brightness: 1.02 } },
     {
-      label: 'Light Leak',
+      label: 'Light Leak', group: 'Light FX',
       filter: { brightness: 1.05, contrast: 1.05, saturate: 1.1, sepia: 0.05 },
       overlay: {
         type: 'radial', cx: 0.88, cy: 0.1, r: 0.95, blend: 'screen', opacity: 0.9,
@@ -141,16 +144,15 @@ import './style.css';
       },
     },
     {
-      label: 'Golden Hour',
+      label: 'Golden Hour', group: 'Light FX',
       filter: { brightness: 1.08, contrast: 0.95, saturate: 1.1, sepia: 0.15 },
       overlay: {
         type: 'linear', angle: 130, blend: 'soft-light', opacity: 0.6,
         stops: [[0, 'rgba(255,214,140,0.9)'], [0.6, 'rgba(255,150,90,0.25)'], [1, 'rgba(255,150,90,0)']],
       },
     },
-    { label: 'Cross Process', filter: { saturate: 1.6, contrast: 1.2, hueRotate: -12, brightness: 1.02 } },
     {
-      label: 'Dreamy Haze',
+      label: 'Dreamy Haze', group: 'Light FX',
       filter: { brightness: 1.1, contrast: 0.85, saturate: 0.85 },
       overlay: {
         type: 'radial', cx: 0.5, cy: 0.42, r: 0.75, blend: 'soft-light', opacity: 0.75,
@@ -158,6 +160,7 @@ import './style.css';
       },
     },
   ];
+  const STYLE_GROUPS = [...new Set(PHOTO_STYLES.map(s => s.group))];
 
   function renderFilmHud(){
     const film = FILM_STOCKS[filmIndex];
@@ -892,6 +895,7 @@ import './style.css';
 
   // ---------- viewer: customize (caption + frame style) and export ----------
   let currentRecord = null;
+  let activeStyleGroup = STYLE_GROUPS[0];
 
   function applyFrameToViewer(record){
     viewerPolaroid.style.background = record.frame.bg;
@@ -918,9 +922,17 @@ import './style.css';
   }
 
   function renderStyleChips(record){
-    styleChips.innerHTML = PHOTO_STYLES.map((s, i) => `
-      <button type="button" class="style-chip${s === record.style ? ' active' : ''}" data-i="${i}">${s.label}</button>
-    `).join('');
+    styleChips.innerHTML = `
+      <div class="style-tabs" role="tablist" aria-label="Style category">
+        ${STYLE_GROUPS.map(g => `<button type="button" class="style-tab${g === activeStyleGroup ? ' active' : ''}" data-group="${g}">${g}</button>`).join('')}
+      </div>
+      <div class="style-chip-row" role="group" aria-label="Choose photo style">
+        ${PHOTO_STYLES.map((s, i) => [s, i])
+          .filter(([s]) => s.group === activeStyleGroup)
+          .map(([s, i]) => `<button type="button" class="style-chip${s === record.style ? ' active' : ''}" data-i="${i}">${s.label}</button>`)
+          .join('')}
+      </div>
+    `;
   }
 
   frameSwatches.addEventListener('click', (e)=>{
@@ -934,8 +946,17 @@ import './style.css';
   });
 
   styleChips.addEventListener('click', (e)=>{
+    if(!currentRecord) return;
+    const tabBtn = e.target.closest('.style-tab');
+    if(tabBtn){
+      e.stopPropagation();
+      activeStyleGroup = tabBtn.dataset.group;
+      renderStyleChips(currentRecord);
+      haptic(6);
+      return;
+    }
     const btn = e.target.closest('.style-chip');
-    if(!btn || !currentRecord) return;
+    if(!btn) return;
     e.stopPropagation();
     currentRecord.style = PHOTO_STYLES[Number(btn.dataset.i)];
     applyStyleToViewer(currentRecord);
@@ -945,6 +966,7 @@ import './style.css';
 
   function openViewer(record){
     currentRecord = record;
+    activeStyleGroup = record.style.group;
     viewerPolaroid.innerHTML = `
       <div class="shot" style="aspect-ratio: ${record.film.aspect};"><img src="${record.finalUrl}"><div class="style-overlay"></div></div>
       <div class="caption" contenteditable="true" spellcheck="false" style="opacity:1; transform: rotate(${record.captionTilt}deg);">${record.caption}</div>
