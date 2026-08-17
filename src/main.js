@@ -1058,9 +1058,14 @@ import './style.css';
 
     drawFrame(0);
     const stream = canvas.captureStream(24);
-    const mimeType = (window.MediaRecorder.isTypeSupported && window.MediaRecorder.isTypeSupported('video/webm;codecs=vp9'))
-      ? 'video/webm;codecs=vp9' : 'video/webm';
+    // iOS Safari's MediaRecorder can't encode WebM at all — only MP4/H.264 —
+    // so without an MP4 path first, export silently fails on iPhone and the
+    // clip never reaches the share sheet's "Save Video" (camera roll) option
+    const CANDIDATE_TYPES = ['video/mp4', 'video/webm;codecs=vp9', 'video/webm'];
+    const mimeType = CANDIDATE_TYPES.find(t => window.MediaRecorder.isTypeSupported && window.MediaRecorder.isTypeSupported(t))
+      || 'video/webm';
     const recorder = new MediaRecorder(stream, { mimeType });
+    const ext = recorder.mimeType.includes('mp4') ? 'mp4' : 'webm';
     const chunks = [];
     recorder.ondataavailable = (e)=>{ if(e.data.size) chunks.push(e.data); };
 
@@ -1069,8 +1074,8 @@ import './style.css';
 
     return new Promise((resolve)=>{
       recorder.onstop = async ()=>{
-        const blob = new Blob(chunks, { type: 'video/webm' });
-        await shareOrDownload(blob, filenameFor(record, 'webm'), 'video/webm');
+        const blob = new Blob(chunks, { type: recorder.mimeType });
+        await shareOrDownload(blob, filenameFor(record, ext), recorder.mimeType);
         resolve();
       };
       recorder.start();
