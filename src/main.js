@@ -27,7 +27,6 @@ import './style.css';
   const frameSwatches = document.getElementById('frameSwatches');
   const styleChips = document.getElementById('styleChips');
   const saveBtn = document.getElementById('saveBtn');
-  const saveVideoBtn = document.getElementById('saveVideoBtn');
 
   let flashOn = false;
   let facingMode = 'environment';
@@ -299,8 +298,7 @@ import './style.css';
   // clock
   function tick(){
     const d = new Date();
-    const s = d.toTimeString().slice(0,8);
-    hudClock.innerHTML = '<span id="recDot"></span>' + s;
+    hudClock.textContent = d.toTimeString().slice(0,8);
   }
   setInterval(tick, 1000); tick();
 
@@ -1004,100 +1002,6 @@ import './style.css';
     haptic([10,30,10]);
     const blob = await renderPolaroidCard(currentRecord);
     await shareOrDownload(blob, filenameFor(currentRecord, 'jpg'), 'image/jpeg');
-  });
-
-  // records a short, story/reel-friendly replay of the develop animation,
-  // framed in the currently chosen border style and caption
-  async function exportDevelopVideo(record){
-    if(!('MediaRecorder' in window) || !HTMLCanvasElement.prototype.captureStream){
-      alert("Video export isn't supported in this browser — try Save Image instead.");
-      return;
-    }
-    haptic([10,30,10]);
-
-    const outW = 720, outH = 1280;
-    const cardW = Math.round(outW * 0.72);
-    const sidePad = Math.round(cardW * 0.045);
-    const topPad = sidePad;
-    const bottomPad = Math.round(cardW * 0.17);
-    const photoW = cardW - sidePad * 2;
-    const photoH = Math.round(photoW / record.film.aspect);
-    const cardH = topPad + photoH + bottomPad;
-    const cardX = Math.round((outW - cardW) / 2);
-    const cardY = Math.round((outH - cardH) / 2);
-
-    const canvas = document.createElement('canvas');
-    canvas.width = outW; canvas.height = outH;
-    const ctx = canvas.getContext('2d');
-    const [img] = await Promise.all([loadImage(record.rawUrl), ensureMarkerFont()]);
-
-    function drawFrame(progress){
-      const bgGrad = ctx.createLinearGradient(0, 0, 0, outH);
-      bgGrad.addColorStop(0, '#17140f');
-      bgGrad.addColorStop(1, '#0b0a08');
-      ctx.fillStyle = bgGrad;
-      ctx.fillRect(0, 0, outW, outH);
-
-      ctx.fillStyle = record.frame.bg;
-      if(ctx.roundRect){ ctx.beginPath(); ctx.roundRect(cardX, cardY, cardW, cardH, 6); ctx.fill(); }
-      else ctx.fillRect(cardX, cardY, cardW, cardH);
-
-      const params = progress < 0.35
-        ? lerpParams(BLANK_LOOK, PALE_LOOK, progress / 0.35)
-        : lerpParams(PALE_LOOK, record.film.final, (progress - 0.35) / 0.65);
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(cardX + sidePad, cardY + topPad, photoW, photoH);
-      ctx.clip();
-      ctx.filter = `${filterString(params)} ${filterString(record.style.filter)}`;
-      ctx.drawImage(img, cardX + sidePad, cardY + topPad, photoW, photoH);
-      ctx.restore();
-
-      drawCaption(ctx, record, cardX + cardW / 2, cardY + topPad + photoH + bottomPad * 0.55, cardW - sidePad * 2);
-    }
-
-    drawFrame(0);
-    const stream = canvas.captureStream(24);
-    // iOS Safari's MediaRecorder can't encode WebM at all — only MP4/H.264 —
-    // so without an MP4 path first, export silently fails on iPhone and the
-    // clip never reaches the share sheet's "Save Video" (camera roll) option
-    const CANDIDATE_TYPES = ['video/mp4', 'video/webm;codecs=vp9', 'video/webm'];
-    const mimeType = CANDIDATE_TYPES.find(t => window.MediaRecorder.isTypeSupported && window.MediaRecorder.isTypeSupported(t))
-      || 'video/webm';
-    const recorder = new MediaRecorder(stream, { mimeType });
-    const ext = recorder.mimeType.includes('mp4') ? 'mp4' : 'webm';
-    const chunks = [];
-    recorder.ondataavailable = (e)=>{ if(e.data.size) chunks.push(e.data); };
-
-    const duration = 5000, holdBlank = 400;
-    const startTime = performance.now();
-
-    return new Promise((resolve)=>{
-      recorder.onstop = async ()=>{
-        const blob = new Blob(chunks, { type: recorder.mimeType });
-        await shareOrDownload(blob, filenameFor(record, ext), recorder.mimeType);
-        resolve();
-      };
-      recorder.start();
-      function tick(){
-        const elapsed = performance.now() - startTime;
-        const t = Math.min(1, Math.max(0, (elapsed - holdBlank) / (duration - holdBlank)));
-        drawFrame(elapsed < holdBlank ? 0 : t);
-        if(elapsed < duration){
-          requestAnimationFrame(tick);
-        } else {
-          drawFrame(1);
-          recorder.stop();
-        }
-      }
-      requestAnimationFrame(tick);
-    });
-  }
-
-  saveVideoBtn.addEventListener('click', async (e)=>{
-    e.stopPropagation();
-    if(!currentRecord) return;
-    await exportDevelopVideo(currentRecord);
   });
 
 })();

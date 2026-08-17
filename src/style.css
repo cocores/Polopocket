@@ -138,13 +138,6 @@ html, body{
   outline-offset: 4px;
 }
 #filmHud.pulse{ color: var(--amber); }
-#recDot{
-  display:inline-block; width:6px; height:6px; border-radius:50%;
-  background: var(--danger); margin-right:6px;
-  animation: blink 1.6s ease-in-out infinite;
-  vertical-align:middle;
-}
-@keyframes blink{ 0%,100%{opacity:1} 50%{opacity:0.25} }
 
 .focus-reticle{
   position:absolute; width:64px; height:64px;
