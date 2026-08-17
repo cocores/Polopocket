@@ -43,6 +43,41 @@ import './style.css';
     const { brightness = 1, contrast = 1, saturate = 1, sepia = 0, grayscale = 0, hueRotate = 0 } = p || {};
     return `brightness(${brightness}) contrast(${contrast}) saturate(${saturate}) sepia(${sepia}) grayscale(${grayscale}) hue-rotate(${hueRotate}deg)`;
   }
+  // some Photo Styles add a colored gradient bloom on top of the filter
+  // grade (light leaks, a golden-hour wash, a soft haze) — described once
+  // in fractional coordinates so both the live CSS preview and the baked
+  // canvas export can render the same look
+  function overlayCssBackground(o){
+    const stops = o.stops.map(([off, color]) => `${color} ${Math.round(off * 100)}%`).join(', ');
+    return o.type === 'radial'
+      ? `radial-gradient(circle at ${Math.round(o.cx * 100)}% ${Math.round(o.cy * 100)}%, ${stops})`
+      : `linear-gradient(${o.angle ?? 135}deg, ${stops})`;
+  }
+  function drawOverlay(ctx, o, x, y, w, h){
+    if(!o) return;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x, y, w, h);
+    ctx.clip();
+    let grad;
+    if(o.type === 'radial'){
+      const cx = x + o.cx * w, cy = y + o.cy * h;
+      grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, o.r * Math.max(w, h));
+    } else {
+      const rad = (o.angle ?? 135) * Math.PI / 180;
+      const dx = Math.cos(rad), dy = Math.sin(rad);
+      const cx = x + w / 2, cy = y + h / 2;
+      const half = (Math.abs(dx) * w + Math.abs(dy) * h) / 2;
+      grad = ctx.createLinearGradient(cx - dx * half, cy - dy * half, cx + dx * half, cy + dy * half);
+    }
+    o.stops.forEach(([off, color]) => grad.addColorStop(off, color));
+    ctx.globalCompositeOperation = o.blend || 'screen';
+    ctx.globalAlpha = o.opacity ?? 1;
+    ctx.fillStyle = grad;
+    ctx.fillRect(x, y, w, h);
+    ctx.restore();
+  }
+
   function lerp(a, b, t){ return a + (b - a) * t; }
   function lerpParams(a, b, t){
     return {
@@ -97,6 +132,31 @@ import './style.css';
     { label: 'Vivid', filter: { saturate: 1.5, contrast: 1.15 } },
     { label: 'Faded', filter: { brightness: 1.12, saturate: 0.5, contrast: 0.85 } },
     { label: 'Noir', filter: { grayscale: 0.7, contrast: 1.35, brightness: 0.85 } },
+    {
+      label: 'Light Leak',
+      filter: { brightness: 1.05, contrast: 1.05, saturate: 1.1, sepia: 0.05 },
+      overlay: {
+        type: 'radial', cx: 0.88, cy: 0.1, r: 0.95, blend: 'screen', opacity: 0.9,
+        stops: [[0, 'rgba(255,196,110,0.95)'], [0.35, 'rgba(255,110,45,0.55)'], [1, 'rgba(255,110,45,0)']],
+      },
+    },
+    {
+      label: 'Golden Hour',
+      filter: { brightness: 1.08, contrast: 0.95, saturate: 1.1, sepia: 0.15 },
+      overlay: {
+        type: 'linear', angle: 130, blend: 'soft-light', opacity: 0.6,
+        stops: [[0, 'rgba(255,214,140,0.9)'], [0.6, 'rgba(255,150,90,0.25)'], [1, 'rgba(255,150,90,0)']],
+      },
+    },
+    { label: 'Cross Process', filter: { saturate: 1.6, contrast: 1.2, hueRotate: -12, brightness: 1.02 } },
+    {
+      label: 'Dreamy Haze',
+      filter: { brightness: 1.1, contrast: 0.85, saturate: 0.85 },
+      overlay: {
+        type: 'radial', cx: 0.5, cy: 0.42, r: 0.75, blend: 'soft-light', opacity: 0.75,
+        stops: [[0, 'rgba(255,255,255,0.85)'], [0.55, 'rgba(255,255,255,0.25)'], [1, 'rgba(255,255,255,0)']],
+      },
+    },
   ];
 
   function renderFilmHud(){
@@ -842,6 +902,13 @@ import './style.css';
   function applyStyleToViewer(record){
     const img = viewerPolaroid.querySelector('.shot img');
     if(img) img.style.filter = filterString(record.style.filter);
+    const overlay = viewerPolaroid.querySelector('.style-overlay');
+    if(overlay){
+      const o = record.style.overlay;
+      overlay.style.background = o ? overlayCssBackground(o) : 'none';
+      overlay.style.mixBlendMode = o ? (o.blend || 'screen') : 'normal';
+      overlay.style.opacity = o ? (o.opacity ?? 1) : 0;
+    }
   }
 
   function renderFrameSwatches(record){
@@ -879,7 +946,7 @@ import './style.css';
   function openViewer(record){
     currentRecord = record;
     viewerPolaroid.innerHTML = `
-      <div class="shot" style="aspect-ratio: ${record.film.aspect};"><img src="${record.finalUrl}"></div>
+      <div class="shot" style="aspect-ratio: ${record.film.aspect};"><img src="${record.finalUrl}"><div class="style-overlay"></div></div>
       <div class="caption" contenteditable="true" spellcheck="false" style="opacity:1; transform: rotate(${record.captionTilt}deg);">${record.caption}</div>
     `;
     applyFrameToViewer(record);
@@ -970,6 +1037,7 @@ import './style.css';
     ctx.filter = filterString(record.style.filter);
     ctx.drawImage(img, sidePad, topPad, photoW, photoH);
     ctx.filter = 'none'; // the style filter shouldn't bleed into the caption below
+    drawOverlay(ctx, record.style.overlay, sidePad, topPad, photoW, photoH);
 
     drawCaption(ctx, record, outW / 2, topPad + photoH + bottomPad * 0.55, outW - sidePad * 2);
 

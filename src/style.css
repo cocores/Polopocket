@@ -280,6 +280,12 @@ html, body{
   position:absolute; inset:0;
   width:100%; height:100%; object-fit:cover;
 }
+.polaroid .shot .style-overlay{
+  position:absolute; inset:0;
+  pointer-events:none;
+  opacity:0;
+  transition: opacity 0.2s ease;
+}
 .polaroid .caption{
   position:absolute; bottom:12px; left:0; right:0;
   text-align:center;
